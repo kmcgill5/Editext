@@ -9,6 +9,7 @@ char File[256];                                       // File name
 std::vector<std::vector<char>> buffer;                // Buffer for input
 int row = 0;                                          // Row in buffer vector
 int col = 0;                                          // Column in buffer vector
+int mostCharsInRow = 0;                               // Number of characters in file's longest line
 HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);    // Handle to terminal
 CONSOLE_SCREEN_BUFFER_INFO csbi;                      // Buffer for screen information
 
@@ -44,6 +45,7 @@ int main(int argc, char* argv[]) {
     // Initiate Vertical Scroll Bar
     GetConsoleScreenBufferInfo(hConsole, &csbi);
     COORD og_dwSize = csbi.dwSize;
+    csbi.dwSize.X = 4500;
     csbi.dwSize.Y = 9000;
     SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
     
@@ -57,8 +59,11 @@ int main(int argc, char* argv[]) {
                 buffer.push_back({});
                 row++;
             }
-            else
+            else {
                 buffer[row].push_back(character);
+                if (buffer[row].size() > buffer[mostCharsInRow].size())
+                    mostCharsInRow = buffer[row].size();
+            }
             std::cout << character;
         }
         GetConsoleScreenBufferInfo(hConsole, &csbi);
@@ -69,10 +74,14 @@ int main(int argc, char* argv[]) {
     fin.close();
     
     // Set Scroll Bars
+    if (mostCharsInRow + 1 > csbi.srWindow.Right - csbi.srWindow.Left)
+        csbi.dwSize.X = mostCharsInRow + 1;
+    else
+        csbi.dwSize.X = csbi.srWindow.Right - csbi.srWindow.Left + 1;
     if (buffer.size() > csbi.srWindow.Bottom - csbi.srWindow.Top)
         csbi.dwSize.Y = buffer.size();
     else
-        csbi.dwSize.Y = csbi.srWindow.Bottom - csbi.srWindow.Top;
+        csbi.dwSize.Y = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
     SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
     
     // Hook and Message Variables
@@ -136,8 +145,18 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
             // Get virtual key code for key pressed
             unsigned char character = ((KBDLLHOOKSTRUCT*)lParam)->vkCode;
             
-            // Get console information
+            // Gets Console Information
             GetConsoleScreenBufferInfo(hConsole, &csbi);
+            
+            // Adjusts Horizontal Scroll Bar if Character is Typed Except Tab and Carriage Return
+            if (character == 32 || character > 47 && character < 58 || character > 64 && character < 91 ||
+                character > 95 && character < 112 || character > 185 && character < 193 || character > 218 && character < 223) {
+                if (buffer[row].size() + 1 > mostCharsInRow) {
+                    mostCharsInRow++;
+                    csbi.dwSize.X++;
+                    SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+                }
+            }
             
             // Typing Display
             if (character == 8) {  // Backspace
@@ -152,6 +171,19 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                     std::cout << " ";
                     // Resets cursor
                     moveRight(col - buffer[row].size() - 1);
+                    // Adjusts horizontal scroll bar
+                    if (buffer[row].size() + 1 == mostCharsInRow) {
+                        for (int i = 0; i < buffer.size(); i++) {
+                            if (buffer[i].size() == mostCharsInRow)
+                                break;
+                            if (i + 1 == buffer.size()) {
+                                mostCharsInRow--;
+                                scrollRight(-1);
+                                csbi.dwSize.X--;
+                                SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+                            }
+                        }
+                    }
                 }
                 //If a carriage return is being deleted
                 else if (row > 0) {
@@ -160,6 +192,12 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                     row--;
                     moveUp(1);
                     moveRight(col);
+                    // Adjusts horizontal scroll bar
+                    if (buffer[row].size() + buffer[row + 1].size() > mostCharsInRow) {
+                        mostCharsInRow = buffer[row].size() + buffer[row + 1].size();
+                        csbi.dwSize.X = mostCharsInRow + 1;
+                        SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+                    }
                     // Save right screen buffer for scrolling later...
                     int rightBuffer = csbi.srWindow.Right;
                     // Writes characters over old characters
@@ -169,7 +207,8 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                             if (i == row + 1)
                                 buffer[row].insert(buffer[row].end(), character);
                         }
-                        if (i > row + 1)   // Blanks out old characters
+                        // Blanks out old characters
+                        if (i > row + 1)
                             for (int k = buffer[i].size(); k < buffer[i - 1].size(); k++)
                                 std::cout << " ";
                         std::cout << std::endl;
@@ -190,6 +229,12 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 }
             }
             else if (character == 9) {  // Tab
+                // Adjust horizontal scroll bar
+                if (buffer[row].size() + 4 > mostCharsInRow) {
+                    mostCharsInRow = buffer[row].size() + 4;
+                    csbi.dwSize.X = mostCharsInRow + 1;
+                    SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+                }
                 // Places four spaces in memory and display
                 for (int i = 0; i < 4; col++, i++)
                     buffer[row].insert(buffer[row].begin() + col, ' ');
@@ -229,6 +274,22 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                             for (int k = 0; k < (int)buffer[i].size() - (int)buffer[i - 1].size(); k++)
                                 std::cout << " ";
                             std::cout << std::endl;
+                        }
+                    }
+                }
+                // Adjust horizontal scroll bar
+                if (col < buffer[row - 1].size() + buffer[row].size() && buffer[row - 1].size() + buffer[row].size() == mostCharsInRow) {
+                    int temp = 0;
+                    for (int i = 0; i < buffer.size(); i++) {
+                        if (buffer[i].size() == mostCharsInRow)
+                            break;
+                        if (buffer[i].size() > temp)
+                            temp = buffer[i].size();
+                        if (i + 1 == buffer.size()) {
+                            mostCharsInRow = temp;
+                            scrollRight(temp - csbi.dwSize.X);
+                            csbi.dwSize.X = mostCharsInRow + 1;
+                            SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
                         }
                     }
                 }
@@ -349,9 +410,28 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                     std::cout << " ";
                     // Adjust cursor
                     moveRight(col - buffer[row].size() - 1);
+                    // Adjusts horizontal scroll bar
+                    if (buffer[row].size() + 1 == mostCharsInRow) {
+                        for (int i = 0; i < buffer.size(); i++) {
+                            if (buffer[i].size() == mostCharsInRow)
+                                break;
+                            if (i + 1 == buffer.size()) {
+                                mostCharsInRow--;
+                                scrollRight(-1);
+                                csbi.dwSize.X--;
+                                SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+                            }
+                        }
+                    }
                 }
                 // If a carriage return is being deleted
                 else if (row < buffer.size() - 1) {
+                    // Adjusts horizontal scroll bar
+                    if (buffer[row].size() + buffer[row + 1].size() > mostCharsInRow) {
+                        mostCharsInRow = buffer[row].size() + buffer[row + 1].size();
+                        csbi.dwSize.X = mostCharsInRow + 1;
+                        SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+                    }
                     // Save right screen buffer for scrolling later...
                     int rightBuffer = csbi.srWindow.Right;
                     // Display next row beside current row
@@ -581,19 +661,18 @@ void scrollRight(int columns) {
 void scrollUp(int lines) {
     // Get console information
     GetConsoleScreenBufferInfo(hConsole, &csbi);
-    SMALL_RECT srWindow = csbi.srWindow;
     
     // Sets area of console to be viewed
-    srWindow.Bottom -= lines;
-    srWindow.Top -= lines;
-    if (srWindow.Top < 0) {
-        srWindow.Bottom -= srWindow.Top;
-        srWindow.Top = 0;
+    csbi.srWindow.Bottom -= lines;
+    csbi.srWindow.Top -= lines;
+    if (csbi.srWindow.Top < 0) {
+        csbi.srWindow.Bottom -= csbi.srWindow.Top;
+        csbi.srWindow.Top = 0;
     }
-    if (srWindow.Bottom >= buffer.size()) {
-        srWindow.Top -= srWindow.Bottom - buffer.size() + 1;
-        srWindow.Bottom = buffer.size() - 1;
+    if (csbi.srWindow.Bottom >= buffer.size()) {
+        csbi.srWindow.Top -= csbi.srWindow.Bottom - buffer.size() + 1;
+        csbi.srWindow.Bottom = buffer.size() - 1;
     }
     
-    SetConsoleWindowInfo(hConsole, TRUE, &srWindow);
+    SetConsoleWindowInfo(hConsole, TRUE, &csbi.srWindow);
 }
