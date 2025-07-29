@@ -14,6 +14,8 @@ HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);    // Handle to terminal
 CONSOLE_SCREEN_BUFFER_INFO csbi;                      // Buffer for screen information
 
 BOOL CALLBACK EnumWindowsProc(HWND, LPARAM);          // Sets focus on console
+void setHScroll(int);                                 // Adjusts horizontal scroll bar
+void setVScroll(int);                                 // Adjusts vertical scroll bar
 LRESULT CALLBACK KeyboardProc(int, WPARAM, LPARAM);   // Keyboard hook
 void moveRight(int);                                  // Moves cursor right/left
 void moveUp(int);                                     // Moves cursor up/down
@@ -45,9 +47,8 @@ int main(int argc, char* argv[]) {
     // Initiate Vertical Scroll Bar
     GetConsoleScreenBufferInfo(hConsole, &csbi);
     COORD og_dwSize = csbi.dwSize;
-    csbi.dwSize.X = 4500;
-    csbi.dwSize.Y = 9000;
-    SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+    setHScroll(4500);
+    setVScroll(9000);
     
     // Copy & Display File Contents
     std::ifstream fin(File);
@@ -74,15 +75,8 @@ int main(int argc, char* argv[]) {
     fin.close();
     
     // Set Scroll Bars
-    if (mostCharsInRow + 1 > csbi.srWindow.Right - csbi.srWindow.Left)
-        csbi.dwSize.X = mostCharsInRow + 1;
-    else
-        csbi.dwSize.X = csbi.srWindow.Right - csbi.srWindow.Left + 1;
-    if (buffer.size() > csbi.srWindow.Bottom - csbi.srWindow.Top)
-        csbi.dwSize.Y = buffer.size();
-    else
-        csbi.dwSize.Y = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
-    SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+    setHScroll(mostCharsInRow + 1);
+    setVScroll(buffer.size());
     
     // Hook and Message Variables
     HHOOK kHook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, NULL, 0);
@@ -134,6 +128,32 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
     }
     return TRUE;
 }
+// Increases Range of Horizontal Scroll Bar
+void setHScroll(int length) {
+    // Get Console Information
+    GetConsoleScreenBufferInfo(hConsole, &csbi);
+    
+    // Adjust Scroll Bar
+    csbi.dwSize.X = length;
+    if (csbi.dwSize.X <= csbi.srWindow.Right)
+        csbi.dwSize.X = csbi.srWindow.Right + 1;
+    
+    // Set Console Information
+    SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+}
+// Increases Range of Vertical Scroll Bar
+void setVScroll(int length) {
+    // Get Console Information
+    GetConsoleScreenBufferInfo(hConsole, &csbi);
+    
+    // Adjust Scroll Bar
+    csbi.dwSize.Y = length;
+    if (csbi.dwSize.Y <= csbi.srWindow.Bottom)
+        csbi.dwSize.Y = csbi.srWindow.Bottom;
+    
+    // Set Console Information
+    SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+}
 // Keyboard Hook for Accepting Input
 LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
     // Window Check
@@ -153,8 +173,7 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 character > 95 && character < 112 || character > 185 && character < 193 || character > 218 && character < 223) {
                 if (buffer[row].size() + 1 > mostCharsInRow) {
                     mostCharsInRow++;
-                    csbi.dwSize.X++;
-                    SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+                    setHScroll(mostCharsInRow + 1);
                 }
             }
             
@@ -179,13 +198,12 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                             if (i + 1 == buffer.size()) {
                                 mostCharsInRow--;
                                 scrollRight(-1);
-                                csbi.dwSize.X--;
-                                SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+                                setHScroll(mostCharsInRow + 1);
                             }
                         }
                     }
                 }
-                //If a carriage return is being deleted
+                // If a carriage return is being deleted
                 else if (row > 0) {
                     // Moves cursor in position
                     col = buffer[row - 1].size();
@@ -195,8 +213,7 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                     // Adjusts horizontal scroll bar
                     if (buffer[row].size() + buffer[row + 1].size() > mostCharsInRow) {
                         mostCharsInRow = buffer[row].size() + buffer[row + 1].size();
-                        csbi.dwSize.X = mostCharsInRow + 1;
-                        SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+                        setHScroll(mostCharsInRow + 1);
                     }
                     // Save right screen buffer for scrolling later...
                     int rightBuffer = csbi.srWindow.Right;
@@ -224,16 +241,14 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                     buffer.erase(buffer.begin() + row + 1);
                     // Adjusts vertical scroll bar
                     scrollUp(1);
-                    csbi.dwSize.Y--;
-                    SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+                    setVScroll(csbi.dwSize.Y - 1);
                 }
             }
             else if (character == 9) {  // Tab
                 // Adjust horizontal scroll bar
                 if (buffer[row].size() + 4 > mostCharsInRow) {
                     mostCharsInRow = buffer[row].size() + 4;
-                    csbi.dwSize.X = mostCharsInRow + 1;
-                    SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+                    setHScroll(mostCharsInRow + 1);
                 }
                 // Places four spaces in memory and display
                 for (int i = 0; i < 4; col++, i++)
@@ -251,8 +266,7 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 buffer.insert(buffer.begin() + row, {' '});
                 buffer[row].erase(buffer[row].begin());
                 // Adjust vertical scrollbar
-                csbi.dwSize.Y++;
-                SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+                setVScroll(csbi.dwSize.Y + 1);
                 // Blanks out characters in row after cursor
                 if (col < buffer[row - 1].size()) {
                     for (int i = col; i < buffer[row - 1].size(); i++)
@@ -288,8 +302,7 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                         if (i + 1 == buffer.size()) {
                             mostCharsInRow = temp;
                             scrollRight(temp - csbi.dwSize.X);
-                            csbi.dwSize.X = mostCharsInRow + 1;
-                            SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+                            setHScroll(mostCharsInRow + 1);
                         }
                     }
                 }
@@ -418,8 +431,7 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                             if (i + 1 == buffer.size()) {
                                 mostCharsInRow--;
                                 scrollRight(-1);
-                                csbi.dwSize.X--;
-                                SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+                                setHScroll(csbi.dwSize.X - 1);
                             }
                         }
                     }
@@ -429,8 +441,7 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                     // Adjusts horizontal scroll bar
                     if (buffer[row].size() + buffer[row + 1].size() > mostCharsInRow) {
                         mostCharsInRow = buffer[row].size() + buffer[row + 1].size();
-                        csbi.dwSize.X = mostCharsInRow + 1;
-                        SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
+                        setHScroll(mostCharsInRow + 1);
                     }
                     // Save right screen buffer for scrolling later...
                     int rightBuffer = csbi.srWindow.Right;
@@ -454,8 +465,8 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                     scrollRight(rightBuffer - csbi.srWindow.Right);
                     scrollUp(1);
                     // Shrink vertical scrollbar
-                    csbi.dwSize.Y--;
-                    SetConsoleScreenBufferSize(hConsole, csbi.dwSize);                }
+                    setVScroll(csbi.dwSize.Y - 1);
+                }
             }
             else if (character == 48) {  // 0
                 // Character with or without SHIFT
