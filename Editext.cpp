@@ -1,7 +1,10 @@
 #pragma comment(lib, "User32")
 
-#include <iostream>
+#include <algorithm>
+#include <conio.h>
 #include <fstream>
+#include <iostream>
+#include <string>
 #include <vector>
 #include <windows.h>
 
@@ -10,6 +13,7 @@ std::vector<std::vector<char>> buffer;                // Buffer for input
 int row = 0;                                          // Row in buffer vector
 int col = 0;                                          // Column in buffer vector
 int mostCharsInRow = 0;                               // Number of characters in file's longest line
+bool saved = true;                                    // Check if file has been saved or modified
 HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);    // Handle to terminal
 CONSOLE_SCREEN_BUFFER_INFO csbi;                      // Buffer for screen information
 
@@ -19,6 +23,7 @@ void setVScroll(int);                                 // Adjusts vertical scroll
 LRESULT CALLBACK KeyboardProc(int, WPARAM, LPARAM);   // Keyboard hook
 void moveRight(int);                                  // Moves cursor right/left
 void moveUp(int);                                     // Moves cursor up/down
+void save();                                          // Saves text to file
 void scrollRight(int);                                // Scrolls right/left
 void scrollUp(int);                                   // Scrolls up/down
 
@@ -83,22 +88,44 @@ int main(int argc, char* argv[]) {
     MSG msg = {};
     
     // Input
-    std::ofstream fout(File);
-    while (GetMessage(&msg, NULL, 0, 0) > 0)
-        std::cerr << 0;
-    
-    // Copy to file
-    if (buffer.size() != 1 || buffer[0].size() != 0) {
-        for (int i = 0; i < buffer.size(); i++) {
-            for (char character : buffer[i])
-                fout << character;
-            if (i + 1 < buffer.size())
-                fout << std::endl;
+    while (true) {
+        int message = GetMessage(&msg, NULL, 0, 0);
+        // Checks if file was saved before exit
+        if (message == 0) {
+            if (!saved) {
+                // Clear CMD Input Buffer
+                FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
+                // Input below file text
+                char ch = ' ';
+                while (ch != 'y' && ch != 'c') {
+                    // Moves screen and cursor for text
+                    setVScroll(buffer.size() + 1);
+                    csbi.dwCursorPosition.Y++;
+                    SetConsoleCursorPosition(hConsole, csbi.dwCursorPosition);
+                    // Gathers one character input silently
+                    std::cout << "Exit Without Saving? (Yes\\Cancel)";
+                    ch = _getch();
+                    // Adjusts screen, simultaneously clearing line of input
+                    moveUp(1);
+                    moveRight(-33);
+                    scrollUp(1);
+                    setVScroll(buffer.size());
+                }
+                if (ch == 'c') {
+                    moveUp(buffer.size() - row - 1);
+                    moveRight(col);
+                }
+                else
+                    break;
+            }
+            else
+                break;
         }
     }
     
-    // Close File
-    fout.close();
+    
+    // Unhook Keyboard
+    UnhookWindowsHookEx(kHook);
     
     // Reset Console Window
     SetConsoleScreenBufferSize(hConsole, og_dwSize);
@@ -168,12 +195,16 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
             // Gets Console Information
             GetConsoleScreenBufferInfo(hConsole, &csbi);
             
-            // Adjusts Horizontal Scroll Bar if Character is Typed Except Tab and Carriage Return
-            if (character == 32 || character > 47 && character < 58 || character > 64 && character < 91 ||
-                character > 95 && character < 112 || character > 185 && character < 193 || character > 218 && character < 223) {
-                if (buffer[row].size() + 1 > mostCharsInRow) {
-                    mostCharsInRow++;
-                    setHScroll(mostCharsInRow + 1);
+            // Checks if File Has Been Modified
+            if (character == 8 || character == 9 || character == 13 || character == 32 || character == 46 || character > 47 && character < 58 ||
+                character > 64 && character < 91 || character > 95 && character < 112 || character > 185 && character < 193 || character > 218 && character < 223) {
+                saved = false;
+                // Adjusts Horizontal Scroll Bar if Character is Typed Except Tab and Carriage Return
+                if (character != 8 || character != 9 || character != 13 || character != 32 || character != 46) {
+                    if (buffer[row].size() + 1 > mostCharsInRow) {
+                        mostCharsInRow++;
+                        setHScroll(mostCharsInRow + 1);
+                    }
                 }
             }
             
@@ -411,6 +442,10 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                         col = buffer[row].size();
                     }
                 }
+            }
+            else if (character == 45) {  // Insert
+                save();
+                saved = true;
             }
             else if (character == 46) {  // Delete
                 // If a character is being deleted
@@ -652,6 +687,21 @@ void moveUp(int lines) {
         csbi.dwCursorPosition.Y = buffer.size() - 1;
     
     SetConsoleCursorPosition(hConsole, csbi.dwCursorPosition);
+}
+// Saves Text to File
+void save() {
+    std::ofstream fout(File);
+    
+    if (buffer.size() != 1 || buffer[0].size() != 0) {
+        for (int i = 0; i < buffer.size(); i++) {
+            for (char character : buffer[i])
+                fout << character;
+            if (i + 1 < buffer.size())
+                fout << std::endl;
+        }
+    }
+    
+    fout.close();
 }
 // Scrolls Right/Left Lines
 void scrollRight(int columns) {
