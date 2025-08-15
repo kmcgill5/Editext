@@ -66,11 +66,18 @@ int main(int argc, char* argv[]) {
                 row++;
             }
             else {
-                buffer[row].push_back(character);
-                if (buffer[row].size() > buffer[mostCharsInRow].size())
+                if (character == '\t')
+                    for (int i = 0; i < 4; i++)
+                        buffer[row].push_back(' ');
+                else
+                    buffer[row].push_back(character);
+                if (buffer[row].size() > mostCharsInRow)
                     mostCharsInRow = buffer[row].size();
             }
-            std::cout << character;
+            if (character == '\t')
+                std::cout << "    ";
+            else
+                std::cout << character;
         }
         GetConsoleScreenBufferInfo(hConsole, &csbi);
         row = 0;
@@ -80,8 +87,11 @@ int main(int argc, char* argv[]) {
     fin.close();
     
     // Set Scroll Bars
+    if (buffer.size() > csbi.srWindow.Bottom - csbi.srWindow.Top)
+        setVScroll(buffer.size());
+    else
+        setVScroll(csbi.srWindow.Bottom + 1);
     setHScroll(mostCharsInRow + 1);
-    setVScroll(buffer.size());
     
     // Hook and Message Variables
     HHOOK kHook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, NULL, 0);
@@ -98,18 +108,33 @@ int main(int argc, char* argv[]) {
                 // Input below file text
                 char ch = ' ';
                 while (ch != 'y' && ch != 'c') {
-                    // Moves screen and cursor for text
-                    setVScroll(buffer.size() + 1);
-                    csbi.dwCursorPosition.Y++;
-                    SetConsoleCursorPosition(hConsole, csbi.dwCursorPosition);
-                    // Gathers one character input silently
-                    std::cout << "Exit Without Saving? (Yes\\Cancel)";
-                    ch = _getch();
-                    // Adjusts screen, simultaneously clearing line of input
-                    moveUp(1);
-                    moveRight(-33);
-                    scrollUp(1);
-                    setVScroll(buffer.size());
+                    // Text is or exceeds one page
+                    if (buffer.size() > csbi.srWindow.Bottom - csbi.srWindow.Top) {
+                        // Moves screen and cursor for text
+                        setVScroll(buffer.size() + 1);
+                        csbi.dwCursorPosition.Y++;
+                        SetConsoleCursorPosition(hConsole, csbi.dwCursorPosition);
+                        // Gathers one character input silently
+                        std::cout << "Exit Without Saving? (Yes\\Cancel)";
+                        ch = _getch();
+                        // Adjusts screen, simultaneously clearing line of input
+                        std::cout << "\r";
+                        moveUp(1);
+                        scrollUp(1);
+                        setVScroll(buffer.size());
+                    }
+                    // Text is less than one page
+                    else {
+                        // Moves cursor down
+                        csbi.dwCursorPosition.Y++;
+                        SetConsoleCursorPosition(hConsole, csbi.dwCursorPosition);
+                        // Input
+                        std::cout << "Exit Without Saving? (Yes\\Cancel)";
+                        ch = _getch();
+                        // Clears line and moves cursor back up
+                        std::cout << "\r                                 \r";
+                        moveUp(1);
+                    }
                 }
                 if (ch == 'c') {
                     moveUp(buffer.size() - row - 1);
@@ -162,8 +187,8 @@ void setHScroll(int length) {
     
     // Adjust Scroll Bar
     csbi.dwSize.X = length;
-    if (csbi.dwSize.X <= csbi.srWindow.Right)
-        csbi.dwSize.X = csbi.srWindow.Right + 1;
+    if (csbi.dwSize.X <= csbi.srWindow.Right - csbi.srWindow.Left + 1)
+        csbi.dwSize.X = csbi.srWindow.Right - csbi.srWindow.Left + 1;
     
     // Set Console Information
     SetConsoleScreenBufferSize(hConsole, csbi.dwSize);
@@ -200,7 +225,7 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 character > 64 && character < 91 || character > 95 && character < 112 || character > 185 && character < 193 || character > 218 && character < 223) {
                 saved = false;
                 // Adjusts Horizontal Scroll Bar if Character is Typed Except Tab and Carriage Return
-                if (character != 8 || character != 9 || character != 13 || character != 32 || character != 46) {
+                if (character != 8 && character != 9 && character != 13 && character != 46) {
                     if (buffer[row].size() + 1 > mostCharsInRow) {
                         mostCharsInRow++;
                         setHScroll(mostCharsInRow + 1);
@@ -227,8 +252,9 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                             if (buffer[i].size() == mostCharsInRow)
                                 break;
                             if (i + 1 == buffer.size()) {
+                                if (csbi.srWindow.Left > 0)
+                                    scrollRight(-1);
                                 mostCharsInRow--;
-                                scrollRight(-1);
                                 setHScroll(mostCharsInRow + 1);
                             }
                         }
@@ -246,8 +272,6 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                         mostCharsInRow = buffer[row].size() + buffer[row + 1].size();
                         setHScroll(mostCharsInRow + 1);
                     }
-                    // Save right screen buffer for scrolling later...
-                    int rightBuffer = csbi.srWindow.Right;
                     // Writes characters over old characters
                     for (int i = row + 1; i < buffer.size(); i++) {
                         for (char character : buffer[i]) {
@@ -266,13 +290,13 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                     // Moves cursor back
                     moveUp(buffer.size() - row - 1);
                     moveRight(col - buffer[buffer.size() - 1].size());
-                    if (col < rightBuffer)
-                        scrollRight(rightBuffer - csbi.srWindow.Right);
                     // Deletes row
                     buffer.erase(buffer.begin() + row + 1);
                     // Adjusts vertical scroll bar
-                    scrollUp(1);
-                    setVScroll(csbi.dwSize.Y - 1);
+                    if (buffer.size() > csbi.srWindow.Bottom - csbi.srWindow.Top) {
+                        scrollUp(1);
+                        setVScroll(csbi.dwSize.Y - 1);
+                    }
                 }
             }
             else if (character == 9) {  // Tab
@@ -297,7 +321,8 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 buffer.insert(buffer.begin() + row, {' '});
                 buffer[row].erase(buffer[row].begin());
                 // Adjust vertical scrollbar
-                setVScroll(csbi.dwSize.Y + 1);
+                if (buffer.size() > csbi.srWindow.Bottom - csbi.srWindow.Top + 1)
+                    setVScroll(csbi.dwSize.Y + 1);
                 // Blanks out characters in row after cursor
                 if (col < buffer[row - 1].size()) {
                     for (int i = col; i < buffer[row - 1].size(); i++)
@@ -478,8 +503,6 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                         mostCharsInRow = buffer[row].size() + buffer[row + 1].size();
                         setHScroll(mostCharsInRow + 1);
                     }
-                    // Save right screen buffer for scrolling later...
-                    int rightBuffer = csbi.srWindow.Right;
                     // Display next row beside current row
                     for (int i = 0; i < buffer[row + 1].size(); i++) {
                         buffer[row].insert(buffer[row].end(), buffer[row + 1][i]);
@@ -497,10 +520,12 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                     // Move cursor back
                     moveUp(buffer.size() - row);
                     moveRight(col - csbi.dwCursorPosition.X);
-                    scrollRight(rightBuffer - csbi.srWindow.Right);
-                    scrollUp(1);
+                    system("pause > nul");
                     // Shrink vertical scrollbar
-                    setVScroll(csbi.dwSize.Y - 1);
+                    if (buffer.size() > csbi.srWindow.Bottom - csbi.srWindow.Top) {
+                        scrollUp(1);
+                        setVScroll(csbi.dwSize.Y - 1);
+                    }
                 }
             }
             else if (character == 48) {  // 0
@@ -716,7 +741,7 @@ void scrollRight(int columns) {
         csbi.srWindow.Left = 0;
     }
     
-    SetConsoleWindowInfo(hConsole, TRUE, &csbi.srWindow);
+    SetConsoleWindowInfo(hConsole, true, &csbi.srWindow);
 }
 // Scrolls Up/Down Lines
 void scrollUp(int lines) {
@@ -735,5 +760,5 @@ void scrollUp(int lines) {
         csbi.srWindow.Bottom = buffer.size() - 1;
     }
     
-    SetConsoleWindowInfo(hConsole, TRUE, &csbi.srWindow);
+    SetConsoleWindowInfo(hConsole, true, &csbi.srWindow);
 }
