@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <windows.h>
+#include "Language.h"
 
 char File[256];                                       // File name
 std::vector<std::vector<char>> buffer;                // Buffer for input
@@ -14,6 +15,7 @@ int row = 0;                                          // Row in buffer vector
 int col = 0;                                          // Column in buffer vector
 int mostCharsInRow = 0;                               // Number of characters in file's longest line
 bool saved = true;                                    // Check if file has been saved or modified
+Language type;                                        // Object used for coloring text
 HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);    // Handle to terminal
 CONSOLE_SCREEN_BUFFER_INFO csbi;                      // Buffer for screen information
 
@@ -26,6 +28,7 @@ void moveUp(int);                                     // Moves cursor up/down
 void save();                                          // Saves text to file
 void scrollRight(int);                                // Scrolls right/left
 void scrollUp(int);                                   // Scrolls up/down
+void update(int, bool);                               // Updates row of text on screen and increments col if true
 
 int main(int argc, char* argv[]) {
     // Argument Checking
@@ -56,12 +59,20 @@ int main(int argc, char* argv[]) {
     setVScroll(9000);
     
     // Copy & Display File Contents
+    type.set(std::string(File).substr(std::string(File).find('.') + 1));
     std::ifstream fin(File);
     buffer.push_back({});
     if (fin.is_open()) {
         char character;
+        std::string line;
         while (fin.get(character)) {
+            if (character == '\t')
+                line += "    ";
+            else
+                line += character;
             if (character == '\n') {
+                type.display(line);
+                line = "";
                 buffer.push_back({});
                 row++;
             }
@@ -74,11 +85,8 @@ int main(int argc, char* argv[]) {
                 if (buffer[row].size() > mostCharsInRow)
                     mostCharsInRow = buffer[row].size();
             }
-            if (character == '\t')
-                std::cout << "    ";
-            else
-                std::cout << character;
         }
+        type.display(line);
         GetConsoleScreenBufferInfo(hConsole, &csbi);
         row = 0;
         moveUp(buffer.size() - 1);
@@ -239,13 +247,13 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 if (col > 0) {
                     col--;
                     buffer[row].erase(buffer[row].begin() + col);
-                    moveRight(-1);
-                    // Writes characters over old characters
+                    // Blanks out ending old characters
                     for (int i = col; i < buffer[row].size(); i++)
-                        std::cout << buffer[row][i];
-                    std::cout << " ";
+                        std::cout << " ";
                     // Resets cursor
                     moveRight(col - buffer[row].size() - 1);
+                    // Updates and colors characters
+                    update(row, false);
                     // Adjusts horizontal scroll bar
                     if (buffer[row].size() + 1 == mostCharsInRow) {
                         for (int i = 0; i < buffer.size(); i++) {
@@ -274,15 +282,15 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                     }
                     // Writes characters over old characters
                     for (int i = row + 1; i < buffer.size(); i++) {
-                        for (char character : buffer[i]) {
-                            std::cout << character;
-                            if (i == row + 1)
+                        if (i == row + 1)
+                            for (char character : buffer[i])
                                 buffer[row].insert(buffer[row].end(), character);
-                        }
                         // Blanks out old characters
                         if (i > row + 1)
-                            for (int k = buffer[i].size(); k < buffer[i - 1].size(); k++)
+                            for (int k = 0; k < buffer[i - 1].size(); k++)
                                 std::cout << " ";
+                        moveRight(col - buffer[i - 1].size());
+                        update((i == row + 1 ? i - 1 : i), false);
                         std::cout << std::endl;
                     }
                     for (int i = 0; i < buffer[buffer.size() - 1].size(); i++)
@@ -308,12 +316,9 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 // Places four spaces in memory and display
                 for (int i = 0; i < 4; col++, i++)
                     buffer[row].insert(buffer[row].begin() + col, ' ');
-                std::cout << "    ";
-                // Displays characters after tab
-                for (int i = col; i < buffer[row].size(); i++)
-                    std::cout << buffer[row][i];
+                update(row, false);
                 // Fixes cursor
-                moveRight(col - buffer[row].size());
+                //moveRight(col - buffer[row].size());
             }
             else if (character == 13) {  // New Line
                 // Insert new row in memory
@@ -325,30 +330,29 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                     setVScroll(csbi.dwSize.Y + 1);
                 // Blanks out characters in row after cursor
                 if (col < buffer[row - 1].size()) {
-                    for (int i = col; i < buffer[row - 1].size(); i++)
-                        std::cout << " ";
-                    // Store characters after NEW LINE in memory
                     int buffer_row_size = buffer[row - 1].size();
-                    for (int i = 0; i < buffer_row_size - col; i++) {
+                    for (int i = col; i < buffer_row_size; i++) {
+                        std::cout << " ";
                         buffer[row].push_back(buffer[row - 1][col]);
                         buffer[row - 1].erase(buffer[row - 1].begin() + col);
                     }
                 }
                 // Display characters
                 std::cout << std::endl;
+                col = 0;
                 if (row < buffer.size()) {
                     for (int i = row + 1; i < buffer.size() + 1; i++) {
-                        for (int k = 0; k < buffer[i - 1].size(); k++)
-                            std::cout << buffer[i - 1][k];
-                        if (i < buffer.size()) {
-                            for (int k = 0; k < (int)buffer[i].size() - (int)buffer[i - 1].size(); k++)
+                        if (i < buffer.size())
+                            for (int k = 0; k < (int)buffer[i].size()/* - (int)buffer[i - 1].size()*/; k++)
                                 std::cout << " ";
+                            moveRight(-buffer[i].size());
+                            update(i - 1, false);
+                        if (i < buffer.size())
                             std::cout << std::endl;
-                        }
                     }
                 }
                 // Adjust horizontal scroll bar
-                if (col < buffer[row - 1].size() + buffer[row].size() && buffer[row - 1].size() + buffer[row].size() == mostCharsInRow) {
+                if (buffer[row - 1].size() + buffer[row].size() == mostCharsInRow) {
                     int temp = 0;
                     for (int i = 0; i < buffer.size(); i++) {
                         if (buffer[i].size() == mostCharsInRow)
@@ -365,7 +369,6 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 // Fix cursor position
                 moveUp(buffer.size() - row - 1);
                 moveRight(-1 * buffer[buffer.size() - 1].size());
-                col = 0;
             }
             else if (character == 27) {  // Escape
                 // Sets cursor position at beginning of last line
@@ -376,7 +379,6 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
             }
             else if (character == 32) {  // Space
                 buffer[row].insert(buffer[row].begin() + col, ' ');
-                std::cout << " ";
             }
             else if (character == 33) {  // Page Up
                 if (row > 0) {
@@ -478,11 +480,10 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                     // Delete character in memory
                     buffer[row].erase(buffer[row].begin() + col);
                     // Display memory over old text
-                    for (int i = col; i < buffer[row].size(); i++)
-                        std::cout << buffer[row][i];
-                    std::cout << " ";
-                    // Adjust cursor
+                    for (int i = col; i < buffer[row].size() + 1; i++)
+                        std::cout << " ";
                     moveRight(col - buffer[row].size() - 1);
+                    update(row, false);
                     // Adjusts horizontal scroll bar
                     if (buffer[row].size() + 1 == mostCharsInRow) {
                         for (int i = 0; i < buffer.size(); i++) {
@@ -504,23 +505,19 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                         setHScroll(mostCharsInRow + 1);
                     }
                     // Display next row beside current row
-                    for (int i = 0; i < buffer[row + 1].size(); i++) {
+                    for (int i = 0; i < buffer[row + 1].size(); i++)
                         buffer[row].insert(buffer[row].end(), buffer[row + 1][i]);
-                        std::cout << buffer[row + 1][i];
-                    }
                     buffer.erase(buffer.begin() + row + 1);
                     // Display and clear below lines
                     for (int i = row; i < buffer.size(); i++) {
+                        update(i, false);
                         std::cout << std::endl;
-                        for (char character : buffer[i + 1])
-                            std::cout << character;
-                        for (int k = buffer[i + 1].size(); k < buffer[i].size(); k++)
+                        for (int k = 0; k < buffer[i].size(); k++)
                             std::cout << " ";
                     }
                     // Move cursor back
                     moveUp(buffer.size() - row);
                     moveRight(col - csbi.dwCursorPosition.X);
-                    system("pause > nul");
                     // Shrink vertical scrollbar
                     if (buffer.size() > csbi.srWindow.Bottom - csbi.srWindow.Top) {
                         scrollUp(1);
@@ -531,153 +528,126 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
             else if (character == 48) {  // 0
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - !(!(GetKeyState(VK_SHIFT) & 0x8000)) *  7));
-                std::cout << (char)(character - !(!(GetKeyState(VK_SHIFT) & 0x8000)) *  7);
             }
             else if (character == 49) {  // 1
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 16));
-                std::cout << (char)(character - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 16);
             }
             else if (character == 50) {  // 2
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 14));
-                std::cout << (char)(character + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 14);
             }
             else if (character == 51) {  // 3
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 16));
-                std::cout << (char)(character - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 16);
             }
             else if (character == 52) {  // 4
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 16));
-                std::cout << (char)(character - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 16);
             }
             else if (character == 53) {  // 5
                 // Character with or without SHIFT or CAPS LOCK
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 16));
-                std::cout << (char)(character - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 16);
             }
             else if (character == 54) {  // 6
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 40));
-                std::cout << (char)(character + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 40);
             }
             else if (character == 55) {  // 7
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 17));
-                std::cout << (char)(character - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 17);
             }
             else if (character == 56) {  // 8
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 14));
-                std::cout << (char)(character - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 14);
             }
             else if (character == 57) {  // 9
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 17));
-                std::cout << (char)(character - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 17);
             }
             else if (character >= 65 && character <= 90) {  // A-Z, a-z
                 // Characters with or without SHIFT or CAPS LOCK
                 buffer[row].insert(buffer[row].begin() + col, (char)(character + (!(GetKeyState(VK_SHIFT) & 0x8000) && !(GetKeyState(VK_CAPITAL) & 0x0001)) * 32));
-                std::cout << (char)(character + (!(GetKeyState(VK_SHIFT) & 0x8000) && !(GetKeyState(VK_CAPITAL) & 0x0001)) * 32);
             }
             else if (character >= 96 && character <= 105) {  // NumPad 0-9
                 // Characters with NumLock on
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - 48));
-                std::cout << (char)(character - 48);
             }
             else if (character == 106) {  // NumPad *
                 // Character
                 buffer[row].insert(buffer[row].begin() + col, '*');
-                std::cout << "*";
             }
             else if (character == 107) {  // NumPad +
                 // Character
                 buffer[row].insert(buffer[row].begin() + col, '+');
-                std::cout << "+";
             }
             else if (character == 109) {  // NumPad -
                 // Character
                 buffer[row].insert(buffer[row].begin() + col, '-');
-                std::cout << "-";
             }
             else if (character == 110) {  // NumPad .
                 // Character with NumLock on
                 buffer[row].insert(buffer[row].begin() + col, '.');
-                std::cout << ".";
             }
             else if (character == 111) {  // NumPad /
                 // Character
                 buffer[row].insert(buffer[row].begin() + col, '/');
-                std::cout << "/";
             }
             else if (character == 186) {  // ;
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - 127 - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 1));
-                std::cout << (char)(character - 127 - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 1);
             }
             else if (character == 187) {  // =
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - 126 - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 18));
-                std::cout << (char)(character - 126 - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 18);
             }
             else if (character == 188) {  // ,
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - 144 + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 16));
-                std::cout << (char)(character - 144 + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 16);
             }
             else if (character == 189) {  // -
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - 144 + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 50));
-                std::cout << (char)(character - 144 + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 50);
             }
             else if (character == 190) {  // .
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - 144 + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 16));
-                std::cout << (char)(character - 144 + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 16);
             }
             else if (character == 191) {  // /
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - 144 + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 16));
-                std::cout << (char)(character - 144 + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 16);
             }
             else if (character == 192) {  // `
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - 96 + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 30));
-                std::cout << (char)(character - 96 + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 30);
             }
             else if (character == 219) {  // [
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - 128 + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 32));
-                std::cout << (char)(character - 128 + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 32);
             }
             else if (character == 220) {  // Backslash
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - 128 + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 32));
-                std::cout << (char)(character - 128 + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 32);
             }
             else if (character == 221) {  // ]
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - 128 + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 32));
-                std::cout << (char)(character - 128 + !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 32);
             }
             else if (character == 222) {  // '
                 // Character with or without SHIFT
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - 183 - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 5));
-                std::cout << (char)(character - 183 - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 5);
             }
             
             // Inserting Printable Characters (Except TAB and ENTER!!)
             if (character == 32 || character > 47 && character < 58 || character > 64 && character < 91 ||
                 character > 95 && character < 112 || character > 185 && character < 193 || character > 218 && character < 223) {
-                col++;
+                update(row, true);
+                /*col++;
                 // Displays the text after the character you typed
                 for (int i = col; i < buffer[row].size(); i++)
                     std::cout << buffer[row][i];
                 // Resets cursor
-                moveRight(col - buffer[row].size());
+                moveRight(col - buffer[row].size());*/
             }
         }
     }
@@ -761,4 +731,18 @@ void scrollUp(int lines) {
     }
     
     SetConsoleWindowInfo(hConsole, true, &csbi.srWindow);
+}
+// Updates Line of Text on Screen
+void update(int row_number, bool cursor) {
+    // Move cursor to beginning line
+    moveRight(-col);
+    
+    // Update line of text
+    std::string line = "";
+    for (char character : buffer[row_number])
+        line += character;
+    type.display(line);
+    
+    // Move cursor to original location
+    moveRight((cursor == true ? ++col : col) - buffer[row_number].size());
 }
