@@ -15,7 +15,7 @@ void Language::set(std::string language) {
     type = language;   // File type / coding language
     
     // Makes up list of primitive data types for each language
-    if (language == "htm") {
+    if (language == "cpp" || language == "h") {
         data_words = {"int", "void", "bool", "char", "long", "short", "float",
                       "double", "signed", "unsigned", "size_t", "wchar_t",
                       "char8_t", "char16_t", "char32", "const", "class", "struct",
@@ -31,7 +31,7 @@ void Language::set(std::string language) {
     }
 }
 void Language::display(std::string line) {
-    if (type == "htm")
+    if (type == "cpp" || type == "h")
         cplusplus(line);
     else if (type == "py")
         python(line);
