@@ -248,7 +248,8 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                     col--;
                     buffer[row].erase(buffer[row].begin() + col);
                     // Blanks out ending old characters
-                    for (int i = col; i < buffer[row].size(); i++)
+                    moveRight(-1);
+                    for (int i = col; i < buffer[row].size() + 1; i++)
                         std::cout << " ";
                     // Resets cursor
                     moveRight(col - buffer[row].size() - 1);
@@ -638,16 +639,10 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 buffer[row].insert(buffer[row].begin() + col, (char)(character - 183 - !(!(GetKeyState(VK_SHIFT) & 0x8000)) * 5));
             }
             
-            // Inserting Printable Characters (Except TAB and ENTER!!)
+            // Typing Printable Characters (Except TAB and ENTER!!)
             if (character == 32 || character > 47 && character < 58 || character > 64 && character < 91 ||
                 character > 95 && character < 112 || character > 185 && character < 193 || character > 218 && character < 223) {
                 update(row, true);
-                /*col++;
-                // Displays the text after the character you typed
-                for (int i = col; i < buffer[row].size(); i++)
-                    std::cout << buffer[row][i];
-                // Resets cursor
-                moveRight(col - buffer[row].size());*/
             }
         }
     }
