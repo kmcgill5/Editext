@@ -104,36 +104,36 @@ void Language::cplusplus(std::string line) {
                 for (std::string data_word : data_words) {
                     if (i == 0 && line.find(data_word + " ") == i) {
                         line = line.substr(0, i) + "\033[95m" + line.substr(i, data_word.length()) + "\033[0m" + line.substr(i + data_word.length());
-                        i += data_word.length() + 9;
+                        i += data_word.length() + 8;
                     }
                     else if (line.find(" " + data_word + " ") == i || line.find(" " + data_word + ",") == i || line.find(" " + data_word + ")") == i
                              || line.find("," + data_word + " ") == i || line.find("," + data_word + ",") == i || line.find("," + data_word + ")") == i
                              || line.find("(" + data_word + " ") == i || line.find("(" + data_word + ",") == i || line.find("(" + data_word + ")") == i) {
                         line = line.substr(0, i + 1) + "\033[95m" + line.substr(i + 1, data_word.length()) + "\033[0m" + line.substr(i + data_word.length() + 1);
-                        i += data_word.length() + 10;
+                        i += data_word.length() + 9;
                     }
                     else if (i == 0 && (line.find(data_word + "* ") == i || line.find(data_word + "*)") == i)) {
                         line = line.substr(0, i) + "\033[95m" + line.substr(i, data_word.length() + 1) + "\033[0m" + line.substr(i + data_word.length() + 1);
-                        i += data_word.length() + 10;
+                        i += data_word.length() + 9;
                     }
                     else if (line.find(" " + data_word + "* ") == i || line.find(" " + data_word + "*,") == i || line.find(" " + data_word + "*)") == i
                              || line.find("," + data_word + "*,") == i || line.find("," + data_word + "*,") == i || line.find("," + data_word + "*)") == i
                              || line.find("(" + data_word + "* ") == i || line.find("(" + data_word + "*,") == i || line.find("(" + data_word + "*)") == i) {
                         line = line.substr(0, i + 1) + "\033[95m" + line.substr(i + 1, data_word.length() + 1) + "\033[0m" + line.substr(i + data_word.length() + 2);
-                        i += data_word.length() + 11;
+                        i += data_word.length() + 10;
                     }
                 }
                 // Keywords
                 for (std::string keyword : keywords) {
-                    if (i == 0 && (line.find(" " + keyword) == i && i + keyword.length() == line.length() - 2 || line.find(keyword + " ") == i || line.find(keyword + "(") == i || line.find(keyword + "{") == i || line.find(keyword + ";") == i)) {
+                    if (i == 0 && (line.find(" " + keyword) == i && i + keyword.length() == line.length() - 2 || line.find(keyword + " ") == i || line.find(keyword + "(") == i || line.find(keyword + "[") == i || line.find(keyword + "{") == i || line.find(keyword + ";") == i)) {
                         line = line.substr(0, i) + "\033[94m" + line.substr(i, keyword.length()) + "\033[0m" + line.substr(i + keyword.length());
                         i += keyword.length() + 8;
                     }
-                else if (line.find(" " + keyword) == i && i + keyword.length() == line.length() - 2 || line.find(" " + keyword + " ") == i || line.find(" " + keyword + "(") == i || line.find(" " + keyword + "{") == i || line.find(" " + keyword + ";") == i
-                         || line.find("(" + keyword) == i && i + keyword.length() == line.length() - 2 || line.find("(" + keyword + " ") == i || line.find("(" + keyword + "(") == i || line.find("(" + keyword + "{") == i || line.find("(" + keyword + ";") == i
-                         || line.find("{" + keyword) == i && i + keyword.length() == line.length() - 2 || line.find("{" + keyword + " ") == i || line.find("{" + keyword + "(") == i || line.find("{" + keyword + "{") == i || line.find("{" + keyword + ";") == i
-                         || line.find("}" + keyword) == i && i + keyword.length() == line.length() - 2 || line.find("}" + keyword + " ") == i || line.find("}" + keyword + "(") == i || line.find("}" + keyword + "{") == i || line.find("}" + keyword + ";") == i
-                         || line.find(";" + keyword) == i && i + keyword.length() == line.length() - 2 || line.find(";" + keyword + " ") == i || line.find(";" + keyword + "(") == i || line.find(";" + keyword + "{") == i || line.find(";" + keyword + ";") == i) {
+                else if (line.find(" " + keyword) == i && i + keyword.length() == line.length() - 2 || line.find(" " + keyword + " ") == i || line.find(" " + keyword + "(") == i || line.find(" " + keyword + "[") == i || line.find(" " + keyword + "{") == i || line.find(" " + keyword + ";") == i
+                         || line.find("(" + keyword) == i && i + keyword.length() == line.length() - 2 || line.find("(" + keyword + " ") == i || line.find("(" + keyword + "(") == i || line.find("(" + keyword + "[") == i || line.find("(" + keyword + "{") == i || line.find("(" + keyword + ";") == i
+                         || line.find("{" + keyword) == i && i + keyword.length() == line.length() - 2 || line.find("{" + keyword + " ") == i || line.find("{" + keyword + "(") == i || line.find("{" + keyword + "[") == i || line.find("{" + keyword + "{") == i || line.find("{" + keyword + ";") == i
+                         || line.find("}" + keyword) == i && i + keyword.length() == line.length() - 2 || line.find("}" + keyword + " ") == i || line.find("}" + keyword + "(") == i || line.find("}" + keyword + "[") == i || line.find("}" + keyword + "{") == i || line.find("}" + keyword + ";") == i
+                         || line.find(";" + keyword) == i && i + keyword.length() == line.length() - 2 || line.find(";" + keyword + " ") == i || line.find(";" + keyword + "(") == i || line.find(";" + keyword + "[") == i || line.find(";" + keyword + "{") == i || line.find(";" + keyword + ";") == i) {
                         line = line.substr(0, i + 1) + "\033[94m" + line.substr(i + 1, keyword.length()) + "\033[0m" + line.substr(i + keyword.length() + 1);
                         i += keyword.length() + 9;
                     }
@@ -236,13 +236,13 @@ void Language::java(std::string line) {
                 }
                 // Data Types and Other Data Words
                 for (std::string data_word : data_words) {
-                    if (i == 0 && line.find(data_word + " ") == i) {
+                    if (i == 0 && (line.find(data_word + " ") == i || line.find(data_word + "[") == i)) {
                         line = line.substr(0, i) + "\033[95m" + line.substr(i, data_word.length()) + "\033[0m" + line.substr(i + data_word.length());
                         i += data_word.length() + 9;
                     }
-                    else if (line.find(" " + data_word + " ") == i || line.find(" " + data_word + ")") == i
-                             || line.find("," + data_word + " ") == i || line.find("," + data_word + ")") == i
-                             || line.find("(" + data_word + " ") == i || line.find("(" + data_word + ")") == i) {
+                    else if (line.find(" " + data_word + " ") == i || line.find(" " + data_word + ")") == i || line.find(" " + data_word + "[") == i
+                             || line.find("," + data_word + " ") == i || line.find("," + data_word + ")") == i || line.find("," + data_word + "[") == i
+                             || line.find("(" + data_word + " ") == i || line.find("(" + data_word + ")") == i || line.find("(" + data_word + "[") == i) {
                         line = line.substr(0, i + 1) + "\033[95m" + line.substr(i + 1, data_word.length()) + "\033[0m" + line.substr(i + data_word.length() + 1);
                         i += data_word.length() + 10;
                     }
