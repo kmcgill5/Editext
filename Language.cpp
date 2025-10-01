@@ -35,19 +35,25 @@ void Language::set(std::string language) {
                     "throws", "transient", "try", "volatile", "while"};
     }
     else if (language == "py") {
-        data_words = {"str", "int", "float", "complex", "list", "tuple", "range",
-                      "dict", "set", "frozenset", "bool", "bytes", "bytearray",
-                      "memoryview", "NoneType"};
+        data_words = {"bool", "bytearray", "bytes", "complex", "dict", "float",
+                      "frozenset", "int", "list", "memoryview", "NoneType", "object"
+                      "property", "range", "set", "slice", "str", "tuple"};
         keywords = {"False", "True", "None", "and", "or", "as", "assert", "async",
                     "await", "break", "class", "continue", "def", "del", "if",
                     "elif", "else", "except", "finally", "for", "from", "global",
                     "in", "is", "lambda", "nonlocal", "not", "pass", "raise",
                     "return", "try", "while", "with", "yield", "import"};
-        methods = {"print", "input", "type"};
+        methods = {"abs", "aiter", "all", "any", "ascii", "bin", "breakpoint",
+                   "callable", "chr", "compile", "delattr", "dir", "divmod", "enumerate",
+                   "eval", "exec", "filter", "format", "getattr", "globals", "hasattr",
+                   "hash", "help", "hex", "id", "input", "isinstance", "issubclass",
+                   "iter", "len", "locals", "map", "max", "min", "next", "oct", "open",
+                   "ord", "pow", "print", "repr", "reversed", "round", "setattr", "sorted",
+                   "sum", "super", "type", "vars", "zip"};
     }
 }
 void Language::display(std::string line) {
-    if (type == "cpp" || type == "h")
+    if (type == "cpp" || type == "h" || type == "hpp")
         cplusplus(line);
     else if (type == "py")
         python(line);
