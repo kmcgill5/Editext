@@ -14,7 +14,7 @@ void Language::set(std::string language) {
     type = language;   // File type / coding language
     
     // Makes up list of primitive data types for each language
-    if (language == "cpp" || language == "h") {
+    if (language == "cpp" || language == "h" || language == "hpp") {
         data_words = {"int", "void", "bool", "char", "long", "short", "float",
                       "double", "signed", "unsigned", "size_t", "wchar_t",
                       "char8_t", "char16_t", "char32", "const", "class", "struct",
@@ -115,13 +115,13 @@ void Language::cplusplus(std::string line) {
                         line = line.substr(0, i) + "\033[95m" + line.substr(i, data_word.length() + pointers) + "\033[0m" + line.substr(i + data_word.length() + pointers);
                         i += data_word.length() + pointers + 8;
                     }
-                    else if (i == 0 && (line.find(data_word + " ") == i || line.find(data_word + "[") == i || line.find(data_word + ";") == i)) {
+                    else if (i == 0 && (line.find(data_word + " ") == i || line.find(data_word + "[") == i || line.find(data_word + ":") == i || line.find(data_word + ";") == i)) {
                         line = line.substr(0, i) + "\033[95m" + line.substr(i, data_word.length()) + "\033[0m" + line.substr(i + data_word.length());
                         i += data_word.length() + 8;
                     }
-                    else if (line.find(" " + data_word + " ") == i || line.find(" " + data_word + ",") == i || line.find(" " + data_word + ")") == i || line.find(" " + data_word + "[") == i || line.find(" " + data_word + ";") == i
-                             || line.find("," + data_word + " ") == i || line.find("," + data_word + ",") == i || line.find("," + data_word + ")") == i || line.find("," + data_word + "[") == i || line.find("," + data_word + ";") == i
-                             || line.find("(" + data_word + " ") == i || line.find("(" + data_word + ",") == i || line.find("(" + data_word + ")") == i || line.find("(" + data_word + "[") == i || line.find("(" + data_word + ";") == i) {
+                    else if (line.find(" " + data_word + " ") == i || line.find(" " + data_word + ",") == i || line.find(" " + data_word + ")") == i || line.find(" " + data_word + "[") == i || line.find(" " + data_word + ":") == i || line.find(" " + data_word + ";") == i
+                             || line.find("," + data_word + " ") == i || line.find("," + data_word + ",") == i || line.find("," + data_word + ")") == i || line.find("," + data_word + "[") == i || line.find("," + data_word + ":") == i || line.find("," + data_word + ";") == i
+                             || line.find("(" + data_word + " ") == i || line.find("(" + data_word + ",") == i || line.find("(" + data_word + ")") == i || line.find("(" + data_word + "[") == i || line.find("(" + data_word + ":") == i || line.find("(" + data_word + ";") == i) {
                         line = line.substr(0, i + 1) + "\033[95m" + line.substr(i + 1, data_word.length()) + "\033[0m" + line.substr(i + data_word.length() + 1);
                         i += data_word.length() + 9;
                     }
