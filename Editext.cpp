@@ -515,6 +515,8 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                         std::cout << std::endl;
                         for (int k = 0; k < buffer[i].size(); k++)
                             std::cout << " ";
+                        GetConsoleScreenBufferInfo(hConsole, &csbi);
+                        moveRight(-csbi.dwCursorPosition.X);
                     }
                     // Move cursor back
                     moveUp(buffer.size() - row);
@@ -655,7 +657,7 @@ void moveRight(int columns) {
     // Get console information
     GetConsoleScreenBufferInfo(hConsole, &csbi);
     
-    // Sets cursor position
+    // Sets cursor positions
     csbi.dwCursorPosition.X += columns;
     if (csbi.dwCursorPosition.X < 0)
         csbi.dwCursorPosition.X = 0;
@@ -731,6 +733,7 @@ void scrollUp(int lines) {
 void update(int row_number, bool cursor) {
     // Move cursor to beginning line
     moveRight(-col);
+    //moveRight(-1 * buffer[row_number].size());
     
     // Update line of text
     std::string line = "";
