@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 #include <windows.h>
-#include "Language.h"
+#include "Language.hpp"
 
 char File[256];                                       // File name
 std::vector<std::vector<char>> buffer;                // Buffer for input
@@ -43,7 +43,8 @@ int main(int argc, char* argv[]) {
         std::cout << "              Specifies drive, directory, and/or file to edit." << std::endl << std::endl;
         std::cout << "Requires terminal support of ANSI." << std::endl;
         std::cout << "Requires horizontal scroll bar." << std::endl << std::endl;
-        std::cout << "To exit EDITEXT and save work, press ESCAPE key." << std::endl;
+        std::cout << "To save work, press INSERT key." << std::endl;
+        std::cout << "To exit work, press ESCAPE key." << std::endl;
         return 0;
     }
     
