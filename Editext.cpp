@@ -222,7 +222,7 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
     EnumWindows(EnumWindowsProc, (LPARAM)&cmdWindow);
     if (GetForegroundWindow() == cmdWindow) {
         // Keyboard Entries
-        if (nCode >=0 && wParam == WM_KEYDOWN) {
+        if (nCode >=0 && wParam == WM_KEYDOWN && !(GetAsyncKeyState(VK_LWIN) & 0x8000) && !(GetAsyncKeyState(VK_RWIN) & 8000)) {
             // Get virtual key code for key pressed
             unsigned char character = ((KBDLLHOOKSTRUCT*)lParam)->vkCode;
             
@@ -571,7 +571,7 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
             }
             else if (character >= 65 && character <= 90) {  // A-Z, a-z
                 // Characters with or without SHIFT or CAPS LOCK
-                buffer[row].insert(buffer[row].begin() + col, (char)(character + (!(GetKeyState(VK_SHIFT) & 0x8000) && !(GetKeyState(VK_CAPITAL) & 0x0001)) * 32));
+                buffer[row].insert(buffer[row].begin() + col, (char)(character + (!(GetKeyState(VK_SHIFT) & 0x8000) == !(GetKeyState(VK_CAPITAL) & 0x0001)) * 32));
             }
             else if (character >= 96 && character <= 105) {  // NumPad 0-9
                 // Characters with NumLock on
